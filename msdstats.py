@@ -60,12 +60,15 @@ if __name__ == '__main__':
         for i, filename in enumerate( msd_files ):
             msd_slope[i,j] = get_slope_from_msd_output( filename )
 
-    print( '# filename mean std' )
+    stats_file = open('stats.dat','w')
+    stats_file.write( '# filename\n' )
+    stats_file.write( '# fileindex mean std nframes\n' )
     for i, filename in enumerate( msd_files ):
-        print( filename, np.mean( msd_slope[i] ), np.std( msd_slope[i] ) )
+        stats_file.write( '{}\n'.format( '# '+filename ))
+        stats_file.write( '{} {:f} {:f} {:f}\n'.format(i , np.mean( msd_slope[i] ), np.std( msd_slope[i] ), n_total_disp_frames ))
         plt.plot(msd_slope[i],'o-',label=filename)
         plt.legend(loc='best')
-
+    stats_file.close()
     np.savetxt( 'slopes.dat', msd_slope )
 
     plt.savefig('slopes.pdf')
