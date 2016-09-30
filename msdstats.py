@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import argparse
 from subprocess import check_output
-import matplotlib
+#import matplotlib
 #matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import sys
 
 def parse_commandline_arguments():
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 	stats.loc[filename] =[ np.mean(msd_slope[i]), np.std(msd_slope[i]), n_total_disp_frames, n_slicesize_frames, delta_slicesize_start, number_of_slices ]
         #plt.plot(msd_slope[i],'o-',label=filename)
         #plt.legend(loc='best')
-    stats.to_csv('stats.csv')
+    stats.to_csv('slope-stats.csv')
     #np.savetxt( 'slopes.dat', msd_slope )
     #plt.savefig('slopes.pdf')
 
