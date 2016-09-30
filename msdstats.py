@@ -43,39 +43,44 @@ def get_slope_from_msd_output( filename ):
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
 
-if __name__ == '__main__':
-    args = parse_commandline_arguments()
+def slope_statistics( disp_filename, natoms, nframes, slice_size, slice_offset, files_to_monitor, msd_executable ):
 
-    n_total_atoms = args.atoms
-    n_total_disp_frames = args.frames
-    n_slicesize_frames = args.slicesize
-    delta_slicesize_start = args.offset
-    msd_executable = args.executable
-    long_disp_filename = args.displacement_file # displacements without the header information
-    msd_files = args.msd_files
-    number_of_slices = int( ( n_total_disp_frames - n_slicesize_frames ) / delta_slicesize_start ) + 1
+    nslices = int( ( nframes - slice_size ) / slice_offset ) + 1
     temp_disp_filename = 'dispslice.out'
 
-    complete_disp_data = np.loadtxt( long_disp_filename )
-    complete_disp_data = complete_disp_data.reshape( ( n_total_disp_frames, n_total_atoms, 3 ) )
+    complete_disp_data = np.loadtxt( disp_filename )
+    complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
 
-    msd_slope = np.empty( ( len( msd_files ), number_of_slices ) )
-    for j, initial_frame in enumerate( range( 0, n_total_disp_frames - n_slicesize_frames + 1, delta_slicesize_start ) ):
-        final_frame = initial_frame + n_slicesize_frames
+    msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
+
+    for j, initial_frame in enumerate( range( 0, nframes - slice_size + 1, slice_offset ) ):
+        final_frame = initial_frame + slice_size
         sliced_disp_data = complete_disp_data[ initial_frame : final_frame ]
-        sliced_disp_data = sliced_disp_data.reshape( n_slicesize_frames * n_total_atoms, 3 )
+        sliced_disp_data = sliced_disp_data.reshape( slice_size * natoms, 3 )
         np.savetxt( temp_disp_filename, sliced_disp_data )
         out = check_output( [ msd_executable ] )
         for i, filename in enumerate( msd_files ):
-            msd_slope[i,j] = get_slope_from_msd_output( filename )
+            msd_slopes[i,j] = get_slope_from_msd_output( filename )
 
-    columns = ['Mean','Standard Deviation','sim length','tau','delta','number of slices']
-    stats = pd.DataFrame( columns = columns, index= msd_files )
-    for i, filename in enumerate( msd_files ):
-	stats.loc[filename] =[ np.mean(msd_slope[i]), np.std(msd_slope[i]), n_total_disp_frames, n_slicesize_frames, delta_slicesize_start, number_of_slices ]
-        #plt.plot(msd_slope[i],'o-',label=filename)
-        #plt.legend(loc='best')
-    stats.to_csv('slope-stats.csv')
-    #np.savetxt( 'slopes.dat', msd_slope )
-    #plt.savefig('slopes.pdf')
+	columns = ['Mean','Standard Deviation','sim length','tau','delta','number of slices']
+	stats = pd.DataFrame( columns = columns, index= msd_files )
+	for i, filename in enumerate( msd_files ):
+	    stats.loc[filename] =[ np.mean(msd_slopes[i]), np.std(msd_slopes[i]), nframes, slice_size, slice_offset, nslices ]
+	stats.to_csv('slope-stats.csv')
+
+    return msd_slopes
+
+
+if __name__ == '__main__':
+    args = parse_commandline_arguments()
+
+    natoms = args.atoms
+    nframes_tot = args.frames
+    slice_size_frames = args.slicesize
+    slice_offset = args.offset
+    msd_executable = args.executable
+    displacements_file = args.displacement_file # displacements without the header information
+    msd_files = args.msd_files
+
+    msd_slopes = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
 
