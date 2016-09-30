@@ -1,5 +1,9 @@
 #! /usr/bin/env python
 
+# Contributors:
+# Benjamin J. Morgan (b.j.morgan@bath.ac.uk)
+# Mario Burbano (mario.burbano@upmc.fr)
+
 from __future__ import print_function
 import numpy as np
 import argparse
@@ -13,8 +17,8 @@ def parse_commandline_arguments():
     parser = argparse.ArgumentParser( description = 'msd error analysis' )
     parser.add_argument( '--atoms', '-a', metavar = 'N', type=int, required = True, help='set the number of atoms' )
     parser.add_argument( '--frames', '-f', metavar = 'N', type=int, required = True, help='number of displacement frames in the complete displacement file' )
-    parser.add_argument( '--window', '-w', metavar = 'N', type=int, required = True, help='number of displacement  frames in each window' )
-    parser.add_argument( '--time', '-t', metavar = 'N', type=int, required = True, help='number of displacement frames between the start of each analysis window' )
+    parser.add_argument( '--slicesize', '-ss', metavar = 'N', type=int, required = True, help='Size of the slice in number of frames' )
+    parser.add_argument( '--offset', '-so', metavar = 'N', type=int, required = True, help='Offset (in number of frames) between the slices' )
     parser.add_argument( '--executable', '-x', help='msd code executable name', default='msdconf.x' )
     parser.add_argument( '--displacement-file', '-d', help='complete displacement file filename', default='displong.out' )
     parser.add_argument( '--msd-files', '-m', nargs='+', help='list of msd output files to analyse', required = True )
@@ -39,22 +43,22 @@ if __name__ == '__main__':
 
     n_total_atoms = args.atoms
     n_total_disp_frames = args.frames
-    n_window_frames = args.window
-    delta_window_start = args.time
+    n_slicesize_frames = args.slicesize
+    delta_slicesize_start = args.offset
     msd_executable = args.executable
     long_disp_filename = args.displacement_file # displacements without the header information
     msd_files = args.msd_files
-    number_of_slices = int( ( n_total_disp_frames - n_window_frames ) / delta_window_start ) + 1
+    number_of_slices = int( ( n_total_disp_frames - n_slicesize_frames ) / delta_slicesize_start ) + 1
     temp_disp_filename = 'dispslice.out'
 
     complete_disp_data = np.loadtxt( long_disp_filename )
     complete_disp_data = complete_disp_data.reshape( ( n_total_disp_frames, n_total_atoms, 3 ) )
 
     msd_slope = np.empty( ( len( msd_files ), number_of_slices ) )
-    for j, initial_frame in enumerate( range( 0, n_total_disp_frames - n_window_frames + 1, delta_window_start ) ):
-        final_frame = initial_frame + n_window_frames
+    for j, initial_frame in enumerate( range( 0, n_total_disp_frames - n_slicesize_frames + 1, delta_slicesize_start ) ):
+        final_frame = initial_frame + n_slicesize_frames
         sliced_disp_data = complete_disp_data[ initial_frame : final_frame ]
-        sliced_disp_data = sliced_disp_data.reshape( n_window_frames * n_total_atoms, 3 )
+        sliced_disp_data = sliced_disp_data.reshape( n_slicesize_frames * n_total_atoms, 3 )
         np.savetxt( temp_disp_filename, sliced_disp_data )
         out = check_output( [ msd_executable ] )
         for i, filename in enumerate( msd_files ):
