@@ -23,6 +23,7 @@ def parse_commandline_arguments():
     parser.add_argument( '--slicesize', '-ss', metavar = 'N', type=int, required = True, help='Size of the slice in number of frames' )
     parser.add_argument( '--offset', '-so', metavar = 'N', type=int, required = True, help='Offset (in number of frames) between the slices' )
     ############################################################################################################################################
+    parser.add_argument( '--msdlen', '-ml', metavar = 'N', type=int, required = True, help='Length of msd' )
     parser.add_argument( '--executable', '-x', help='msd code executable name', default='msdconf.x' )
     parser.add_argument( '--displacement-file', '-d', help='complete displacement file filename', default='displong.out' )
     parser.add_argument( '--msd-files', '-m', nargs='+', help='list of msd output files to analyse', required = True )
@@ -103,10 +104,12 @@ def slope_convergence( disp_filename, natoms, nframes, msd_length, slice_offset,
     
     temp_disp_filename = 'dispslice.out'
 
+    #slices = range( 0, nframes - slice_offset + 1,  slice_offset )
+    #nslices = int( ( nframes - slice_offset ) / slice_offset ) + 1
+    slices = range( slice_offset, nframes + 1,  slice_offset )
+    nslices = len( slices )
     complete_disp_data = np.loadtxt( disp_filename )
     complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
-    slices = range( slice_offset, nframes + slice_offset, slice_offset )
-    nslices = len( slices )
     msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
     
     for j, new_length in enumerate( slices ):
@@ -133,7 +136,8 @@ if __name__ == '__main__':
     msd_executable = args.executable
     displacements_file = args.displacement_file # displacements without the header information
     msd_files = args.msd_files
+    msd_length = args.msdlen
     
-    slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, slice_offset, slice_offset, msd_files, msd_executable )
+    slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, slice_offset, msd_files, msd_executable )
     slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
 
