@@ -24,9 +24,11 @@ def parse_commandline_arguments():
     parser.add_argument( '--offset', '-so', metavar = 'N', type=int, required = True, help='Offset (in number of frames) between the slices' )
     ############################################################################################################################################
     parser.add_argument( '--msdlen', '-ml', metavar = 'N', type=int, required = True, help='Length of msd' )
+    parser.add_argument( '--prntfrq', '-p', metavar = 'N', type=int, required = False, default = 1000, help='Print frequency of displacements' )
     parser.add_argument( '--executable', '-x', help='msd code executable name', default='msdconf.x' )
     parser.add_argument( '--displacement-file', '-d', help='complete displacement file filename', default='displong.out' )
     parser.add_argument( '--msd-files', '-m', nargs='+', help='list of msd output files to analyse', required = True )
+    parser.add_argument( '--convcalc', '-cc', action='store_true', help='Perform a slope convergence calculation rather than the slope statistics calculation.' )
     return parser.parse_args()
 
 def read_msd_template(template_file='msd_template'):
@@ -97,7 +99,7 @@ def slope_statistics( disp_filename, natoms, nframes, slice_size, slice_offset, 
 
     return msd_slopes
 
-def slope_convergence( disp_filename, natoms, nframes, msd_length, slice_offset, files_to_monitor, msd_executable ):
+def slope_convergence( disp_filename, natoms, nframes, msd_length, nprint, slice_offset, files_to_monitor, msd_executable ):
 # This function analyses how the slopes change as we increase the simulation time. It creates slices of the 
 # displacement file that become increasingly larger. 
     my_template = read_msd_template('msd_template')
@@ -117,7 +119,7 @@ def slope_convergence( disp_filename, natoms, nframes, msd_length, slice_offset,
         sliced_disp_data = complete_disp_data[ 0 : new_length ]
         sliced_disp_data = sliced_disp_data.reshape( new_length * natoms, 3 )
         np.savetxt( temp_disp_filename, sliced_disp_data )
-        write_msd_inpt(my_template,msd_length=msd_length,n_frames=new_length)
+        write_msd_inpt(my_template,msd_length=msd_length,n_frames=new_length, nprint=nprint)
         out = check_output( [ msd_executable ] )
         for i, filename in enumerate( files_to_monitor ):
             msd_slopes[i,j] = get_slope_from_msd_output( filename )
@@ -137,7 +139,10 @@ if __name__ == '__main__':
     displacements_file = args.displacement_file # displacements without the header information
     msd_files = args.msd_files
     msd_length = args.msdlen
+    convcalc = args.convcalc
+    prntfrq = args.prntfrq
     
-    slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, slice_offset, msd_files, msd_executable )
-    slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
-
+    if not convcalc:
+	slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
+    else:
+	slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
