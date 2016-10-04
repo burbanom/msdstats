@@ -2,14 +2,13 @@
 
 # Contributors:
 # Benjamin J. Morgan (b.j.morgan@bath.ac.uk)
-# Mario Burbano (mario.burbano@upmc.fr)
+# Mario Burbano (burbano.carmona@gmail.com)
 
 from __future__ import print_function
 import numpy as np
 import pandas as pd
 import argparse
 from subprocess import check_output
-#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sys
 
