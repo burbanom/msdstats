@@ -133,7 +133,7 @@ def open_displacements( displacements_file, natoms ):
     disp_data_shape = np.shape( disp_data )
     if np.mod( disp_data_shape[0], natoms ) != 0:
         sys.exit('ERROR = The number of frames in the file is not an integer multiple of the number of atoms.')
-    nframes = disp_data_shape[0] / natoms
+    nframes = int( disp_data_shape[0] / natoms )
     return disp_data, nframes
 
 
