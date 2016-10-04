@@ -15,7 +15,7 @@ import sys
 def parse_commandline_arguments():
     parser = argparse.ArgumentParser( description = 'msd error analysis' )
     parser.add_argument( '--atoms', '-a', metavar = 'N', type=int, required = True, help='set the number of atoms' )
-    parser.add_argument( '--frames', '-f', metavar = 'N', type=int, required = True, help='number of displacement frames in the complete displacement file' )
+    parser.add_argument( '--frames', '-f', metavar = 'N', type=int, required = False, help='number of displacement frames in the complete displacement file' )
     ###########################################################################################################################################
     # The following two values correspond to tau and delta, respectively in the following article:
     # http://pubs.acs.org/doi/abs/10.1021/acs.jctc.5b00574?journalCode=jctcce
@@ -71,12 +71,12 @@ def get_slope_from_msd_output( filename ):
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
 
-def slope_statistics( disp_filename, natoms, nframes, slice_size, slice_offset, files_to_monitor, msd_executable ):
+def slope_statistics( disp_data_np, natoms, nframes, slice_size, slice_offset, files_to_monitor, msd_executable ):
 
     nslices = int( ( nframes - slice_size ) / slice_offset ) + 1
     temp_disp_filename = 'dispslice.out'
 
-    complete_disp_data = np.loadtxt( disp_filename )
+    complete_disp_data = disp_data_np 
     complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
 
     msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
@@ -98,7 +98,7 @@ def slope_statistics( disp_filename, natoms, nframes, slice_size, slice_offset, 
 
     return msd_slopes
 
-def slope_convergence( disp_filename, natoms, nframes, msd_length, nprint, slice_offset, files_to_monitor, msd_executable ):
+def slope_convergence( disp_data_np, natoms, nframes, msd_length, nprint, slice_offset, files_to_monitor, msd_executable ):
 # This function analyses how the slopes change as we increase the simulation time. It creates slices of the 
 # displacement file that become increasingly larger. 
     my_template = read_msd_template('msd_template')
@@ -109,7 +109,7 @@ def slope_convergence( disp_filename, natoms, nframes, msd_length, nprint, slice
     #nslices = int( ( nframes - slice_offset ) / slice_offset ) + 1
     slices = range( slice_offset, nframes + 1,  slice_offset )
     nslices = len( slices )
-    complete_disp_data = np.loadtxt( disp_filename )
+    complete_disp_data = disp_data_np 
     complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
     msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
     
@@ -127,11 +127,21 @@ def slope_convergence( disp_filename, natoms, nframes, msd_length, nprint, slice
     slopes_df.to_csv('slope-conv.csv')
     return msd_slopes
 
+def open_displacements( displacements_file, natoms ):
+    import sys
+    disp_data = np.loadtxt( displacements_file )
+    disp_data_shape = np.shape( disp_data )
+    if np.mod( disp_data_shape[0], natoms ) != 0:
+        sys.exit('The number of frames in the file is not an integer multiple of the number of atoms')
+    nframes = disp_data_shape[0] / natoms
+    return disp_data, nframes
+
+
 if __name__ == '__main__':
     args = parse_commandline_arguments()
 
     natoms = args.atoms
-    nframes_tot = args.frames
+    #nframes_tot = args.frames
     slice_size_frames = args.slicesize
     slice_offset = args.offset
     msd_executable = args.executable
@@ -141,7 +151,9 @@ if __name__ == '__main__':
     convcalc = args.convcalc
     prntfrq = args.prntfrq
     
+    complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
+
     if not convcalc:
-        slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
+        slope_stats = slope_statistics( complete_disp_data, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
     else:
-        slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
+        slope_conv = slope_convergence( complete_disp_data, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
