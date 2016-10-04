@@ -142,6 +142,6 @@ if __name__ == '__main__':
     prntfrq = args.prntfrq
     
     if not convcalc:
-	slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
+        slope_stats = slope_statistics( displacements_file, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
     else:
-	slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
+        slope_conv = slope_convergence( displacements_file, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
