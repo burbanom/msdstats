@@ -71,7 +71,10 @@ def get_slope_from_msd_output( filename ):
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
 
-def slope_statistics( disp_data_np, natoms, nframes, slice_size, slice_offset, files_to_monitor, msd_executable ):
+def slope_statistics( disp_data_np, natoms, nframes, msd_length, nprint, slice_size, slice_offset, files_to_monitor, msd_executable ):
+
+    my_template = read_msd_template('msd_template')
+    write_msd_inpt(my_template,msd_length=msd_length,n_frames=slice_size, nprint=nprint)
 
     nslices = int( ( nframes - slice_size ) / slice_offset ) + 1
     temp_disp_filename = 'dispslice.out'
@@ -154,6 +157,6 @@ if __name__ == '__main__':
     complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
 
     if not convcalc:
-        slope_stats = slope_statistics( complete_disp_data, natoms, nframes_tot, slice_size_frames, slice_offset, msd_files, msd_executable ) 
+        slope_stats = slope_statistics( complete_disp_data, natoms, nframes_tot, msd_length, prntfrq, slice_size_frames, slice_offset, msd_files, msd_executable ) 
     else:
         slope_conv = slope_convergence( complete_disp_data, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
