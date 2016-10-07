@@ -10,6 +10,7 @@ import pandas as pd
 import argparse
 from subprocess import check_output
 import matplotlib.pyplot as plt
+from os.path import isfile
 import sys
 
 def parse_commandline_arguments():
@@ -154,6 +155,11 @@ if __name__ == '__main__':
     convcalc = args.convcalc
     prntfrq = args.prntfrq
     
+    try:
+        isfile( displacements_file ) 
+    except:
+        sys.exit("File " + displacements_file + " not found")
+
     complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
 
     if not convcalc:
