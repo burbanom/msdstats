@@ -32,7 +32,12 @@ def parse_commandline_arguments():
     return parser.parse_args()
 
 def read_msd_template(template_file='msd_template'):
+    from os.path import isfile
     lines = []
+    try:
+        isfile( template_file ) 
+    except:
+        sys.exit("File " + template_file + " not found")
     with open(template_file) as f:
         for line in f.readlines():
             lines.append(line)
