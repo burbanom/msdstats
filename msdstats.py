@@ -8,7 +8,6 @@ from __future__ import print_function
 import numpy as np
 import pandas as pd
 import argparse
-from subprocess import check_output
 import matplotlib.pyplot as plt
 from os.path import isfile
 import sys
