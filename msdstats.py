@@ -15,19 +15,19 @@ import sys
 
 def parse_commandline_arguments():
     parser = argparse.ArgumentParser( description = 'msd error analysis' )
-    parser.add_argument( '--atoms', '-a', metavar = 'N', type=int, required = True, help='set the number of atoms' )
-    parser.add_argument( '--frames', '-f', metavar = 'N', type=int, required = False, help='number of displacement frames in the complete displacement file' )
     ###########################################################################################################################################
     # The following two values correspond to tau and delta, respectively in the following article:
     # http://pubs.acs.org/doi/abs/10.1021/acs.jctc.5b00574?journalCode=jctcce
-    parser.add_argument( '--slicesize', '-ss', metavar = 'N', type=int, required = True, help='Size of the slice in number of frames' )
-    parser.add_argument( '--offset', '-so', metavar = 'N', type=int, required = True, help='Offset (in number of frames) between the slices' )
+    parser.add_argument( '--slicesize', '-ss', metavar = 'N', type=int, required = False, help='Size of the slice in number of frames' )
+    parser.add_argument( '--offset', '-so', metavar = 'N', type=int, required = True, help='Offset (in number of frames) between the slices or increment in conv. calc.' )
     ############################################################################################################################################
     parser.add_argument( '--msdlen', '-ml', metavar = 'N', type=int, required = True, help='Length of msd' )
     parser.add_argument( '--prntfrq', '-p', metavar = 'N', type=int, required = False, default = 1000, help='Print frequency of displacements' )
-    parser.add_argument( '--executable', '-x', help='msd code executable name', default='msdconf.x' )
+    parser.add_argument( '--timestep', '-t', metavar = 'F', type=float, required = False, default = 41.3414, help='Simulation timestep in a.u.' )
     parser.add_argument( '--displacement-file', '-d', help='complete displacement file filename', default='displong.out' )
     parser.add_argument( '--msd-files', '-m', nargs='+', help='list of msd output files to analyse', required = True )
+    parser.add_argument( '--charges', '-z', nargs='+', type=float, help='Charge on each species. Same order as nspcs', required = True )
+    parser.add_argument( '--nspcs', '-ns', nargs='+', type=int, help='Number or atoms of each species. Same order as charges.', required = True )
     parser.add_argument( '--convcalc', '-cc', action='store_true', help='Perform a slope convergence calculation rather than the slope statistics calculation.' )
     return parser.parse_args()
 
@@ -68,29 +68,32 @@ def get_slope_from_msd_output( filename ):
     msd_data = np.loadtxt( filename )
     msd_length = msd_data.shape[0]
     long_time_msd_data = msd_data[ msd_length / 5 : -1 ]
-    np.savetxt( 'msd_test.tmp', long_time_msd_data )
+    #np.savetxt( 'msd_test.tmp', long_time_msd_data )
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
 
-def slope_statistics( disp_data_np, natoms, nframes, msd_length, nprint, slice_size, slice_offset, files_to_monitor, msd_executable ):
+def slope_statistics( dispfile, nspcs, charges, nframes, msd_length, nprint, timestep, slice_size, slice_offset, files_to_monitor ):
 
-    my_template = read_msd_template('msd_template')
-    write_msd_inpt(my_template,msd_length=msd_length,n_frames=slice_size, nprint=nprint)
+    import calcmsds
+
+    natoms = np.sum( nspcs )
+    nspecies = len(nspcs)
 
     nslices = int( ( nframes - slice_size ) / slice_offset ) + 1
-    temp_disp_filename = 'dispslice.out'
-
-    complete_disp_data = disp_data_np 
-    complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
 
     msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
 
     for j, initial_frame in enumerate( range( 0, nframes - slice_size + 1, slice_offset ) ):
         final_frame = initial_frame + slice_size
-        sliced_disp_data = complete_disp_data[ initial_frame : final_frame ]
-        sliced_disp_data = sliced_disp_data.reshape( slice_size * natoms, 3 )
-        np.savetxt( temp_disp_filename, sliced_disp_data )
-        out = check_output( [ msd_executable ] )
+        sliced_disp_data = disp_slicer( dispfile, nframes * natoms,  initial_frame * natoms, final_frame * natoms )
+        calcmsds.calcmsds.z = charges
+        calcmsds.calcmsds.numspc = nspcs 
+        calcmsds.calcmsds.xdisp_long = sliced_disp_data[:,0]
+        calcmsds.calcmsds.ydisp_long = sliced_disp_data[:,1]
+        calcmsds.calcmsds.zdisp_long = sliced_disp_data[:,2]
+        this_calc = calcmsds.calcmsds.msdconf(num=natoms,nspecies=nspecies,
+                nmsdlength=msd_length,nmsdcalltime=nprint,dtime=timestep,nrun= slice_size * nprint)
+
         for i, filename in enumerate( msd_files ):
             msd_slopes[i,j] = get_slope_from_msd_output( filename )
 
@@ -102,28 +105,29 @@ def slope_statistics( disp_data_np, natoms, nframes, msd_length, nprint, slice_s
 
     return msd_slopes
 
-def slope_convergence( disp_data_np, natoms, nframes, msd_length, nprint, slice_offset, files_to_monitor, msd_executable ):
+def slope_convergence( dispfile, nspcs, charges, nframes, msd_length, nprint, timestep, slice_offset, files_to_monitor ):
 # This function analyses how the slopes change as we increase the simulation time. It creates slices of the 
 # displacement file that become increasingly larger. 
-    my_template = read_msd_template('msd_template')
     
-    temp_disp_filename = 'dispslice.out'
+    import calcmsds
 
-    #slices = range( 0, nframes - slice_offset + 1,  slice_offset )
-    #nslices = int( ( nframes - slice_offset ) / slice_offset ) + 1
+    natoms = np.sum( nspcs )
+    nspecies = len( nspcs )
+
     slices = range( slice_offset, nframes + 1,  slice_offset )
     nslices = len( slices )
-    complete_disp_data = disp_data_np 
-    complete_disp_data = complete_disp_data.reshape( ( nframes, natoms, 3 ) )
     msd_slopes = np.empty( ( len( files_to_monitor ), nslices ) )
     
     for j, new_length in enumerate( slices ):
         
-        sliced_disp_data = complete_disp_data[ 0 : new_length ]
-        sliced_disp_data = sliced_disp_data.reshape( new_length * natoms, 3 )
-        np.savetxt( temp_disp_filename, sliced_disp_data )
-        write_msd_inpt(my_template,msd_length=msd_length,n_frames=new_length, nprint=nprint)
-        out = check_output( [ msd_executable ] )
+        sliced_disp_data = disp_slicer( dispfile, nframes * natoms, 0, new_length * natoms )
+        calcmsds.calcmsds.z = charges
+        calcmsds.calcmsds.numspc = nspcs 
+        calcmsds.calcmsds.xdisp_long = sliced_disp_data[:,0]
+        calcmsds.calcmsds.ydisp_long = sliced_disp_data[:,1]
+        calcmsds.calcmsds.zdisp_long = sliced_disp_data[:,2]
+        this_calc = calcmsds.calcmsds.msdconf(num=natoms,nspecies=nspecies,
+                nmsdlength=msd_length,nmsdcalltime=nprint,dtime=timestep,nrun= new_length * nprint)
         for i, filename in enumerate( files_to_monitor ):
             msd_slopes[i,j] = get_slope_from_msd_output( filename )
     columns = slices
@@ -131,29 +135,40 @@ def slope_convergence( disp_data_np, natoms, nframes, msd_length, nprint, slice_
     slopes_df.to_csv('slope-conv.csv')
     return msd_slopes
 
-def open_displacements( displacements_file, natoms ):
-    import sys
-    disp_data = np.loadtxt( displacements_file )
-    disp_data_shape = np.shape( disp_data )
-    if np.mod( disp_data_shape[0], natoms ) != 0:
-        sys.exit('ERROR = The number of frames in the file is not an integer multiple of the number of atoms.')
-    nframes = int( disp_data_shape[0] / natoms )
-    return disp_data, nframes
+def disp_slicer( dispfile, tot_rows, row_start, row_end ):
+    # This function prevents us from having to open the entire 
+    # displacements file.
+    header = len( [i for i in range(0, row_start)] )
+    footer = len( [i for i in range(row_end, tot_rows) ] )
+    return np.genfromtxt(dispfile, skip_header = header, skip_footer = footer, dtype= np.float64)
 
+def simplecount(filename):
+    lines = 0
+    for line in open(filename):
+        lines += 1
+    return lines
+
+def wccount(filename):
+    import subprocess
+    out = subprocess.Popen(['wc', '-l', filename],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT).communicate()[0]
+    return int(out.partition(b' ')[0])
 
 if __name__ == '__main__':
     args = parse_commandline_arguments()
 
-    natoms = args.atoms
-    #nframes_tot = args.frames
     slice_size_frames = args.slicesize
     slice_offset = args.offset
-    msd_executable = args.executable
     displacements_file = args.displacement_file # displacements without the header information
     msd_files = args.msd_files
     msd_length = args.msdlen
     convcalc = args.convcalc
     prntfrq = args.prntfrq
+    charges = args.charges
+    charges = np.array( args.charges , dtype=np.float64 )
+    nspcs = np.array( args.nspcs, dtype=np.int64 )
+    timestep = args.timestep
     
     try:
         isfile( displacements_file ) 
@@ -161,13 +176,25 @@ if __name__ == '__main__':
         sys.exit("File " + displacements_file + " not found")
 
     try:
+        nlines = wccount( displacements_file )
         isfile( 'msd_template' ) 
-    except:
-        sys.exit("File msd_template not found")
+    except OSError:
+        print("OS error: {0}".format(err))
+    else:
+        nlines = simplecount( displacements_file ) 
 
-    complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
+    natoms = np.sum( nspcs )
+    if np.mod( nlines, natoms ) != 0:
+        sys.exit('ERROR = The number of frames in the file is not an integer multiple of the number of atoms.')
+    nframes_tot = int( nlines / natoms )
+
+    if np.sum( nspcs * charges ) != 0.0:
+        sys.exit('System is not charge balanced!')
+
+
+    #complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
 
     if not convcalc:
-        slope_stats = slope_statistics( complete_disp_data, natoms, nframes_tot, msd_length, prntfrq, slice_size_frames, slice_offset, msd_files, msd_executable ) 
+        slope_stats = slope_statistics( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_size_frames, slice_offset, msd_files ) 
     else:
-        slope_conv = slope_convergence( complete_disp_data, natoms, nframes_tot, msd_length, prntfrq, slice_offset, msd_files, msd_executable )
+        slope_conv = slope_convergence( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_offset, msd_files )

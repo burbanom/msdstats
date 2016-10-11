@@ -4,25 +4,31 @@ module calcmsds
 
 IMPLICIT NONE
 
-INTEGER :: n,i,j,k,nmsdlength,num,nspecies,nstep,nrun,nbin,nconfigs,i1,i2
-INTEGER :: mcorrtime,nmsdcalltime
-INTEGER, ALLOCATABLE, DIMENSION(:) :: ntype,numspc,normtot
-INTEGER, ALLOCATABLE, DIMENSION(:,:) :: norm
-DOUBLE PRECISION :: dtime,bin,flag_disp
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: xdisp,ydisp,zdisp,z
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xdispstore,ydispstore,zdispstore
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xmsd,ymsd,zmsd
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:,:) :: xds,yds,zds
-CHARACTER*20 :: rstfile,filename
-CHARACTER*200 :: filein
-CHARACTER(len=9) :: indi
-LOGICAL :: overflow, restart,readfrominpt_log
+!!! Input arrays
+DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: xdisp_long,ydisp_long,zdisp_long
+DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: z 
+INTEGER, ALLOCATABLE, DIMENSION(:) :: numspc 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 
 contains
 
-    subroutine msdconf
+    subroutine msdconf(num, nspecies, nmsdlength,nmsdcalltime,dtime,nrun)
 
     IMPLICIT NONE
+
+    INTEGER, INTENT(IN) :: num, nspecies, nmsdlength, nmsdcalltime, nrun
+    DOUBLE PRECISION, INTENT(IN) :: dtime
+    INTEGER :: n,i,j,k,nstep,nconfigs,i1,i2
+    INTEGER :: mcorrtime
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: ntype,normtot
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: norm
+    DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: xdisp,ydisp,zdisp
+    DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xdispstore,ydispstore,zdispstore
+    DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xmsd,ymsd,zmsd
+    DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:,:) :: xds,yds,zds
+    CHARACTER*20 :: rstfile,filename
+    CHARACTER(len=9) :: indi
+    LOGICAL :: overflow, restart,readfrominpt_log
 
     rstfile='msdrst.dat'
     restart=.false.
@@ -31,23 +37,24 @@ contains
 
     indi='123456789'
 
-    !!!!! Get parameters and allocates vectors and matrices !!!!!
+    ! Check if the arrays have been allocated by master python code.
+    if ((allocated(xdisp_long)) .and. (allocated(ydisp_long)) .and. (allocated(zdisp_long))) then
+        continue
+    else
+        stop 'displacement arrays not allocated'
+    end if
 
-    open(10,file='msd.inpt')
-    read(10,'(a)') filein
-    open(11,file=filein,status='old', form='formatted')
+    if (allocated(numspc)) then
+        continue
+    else
+        stop 'numspc array not allocated'
+    end if
 
-    read(10,*) nspecies
-    ALLOCATE(numspc(nspecies))
-    ALLOCATE(z(nspecies))
-    num=0
-    do i=1,nspecies
-       read(10,*) numspc(i),z(i)
-       num=num+numspc(i)
-    end do
-!    write(6,*) 'The total number of ions/atoms is:',num
-
-    read(10,*) nmsdlength
+    if (allocated(z)) then
+        continue
+    else
+        stop 'charges array not allocated'
+    end if
 
     ALLOCATE(xdisp(num))
     ALLOCATE(ydisp(num))
@@ -64,15 +71,6 @@ contains
     ALLOCATE(norm(num,0:nmsdlength))
     ALLOCATE(normtot(0:nmsdlength))
     ALLOCATE(ntype(num))
-
-    read(10,*) restart
-    read(10,*) readfrominpt_log
-    if (readfrominpt_log) then
-       read(10,*) nmsdcalltime
-       read(10,*) dtime
-       read(10,*) flag_disp
-       read(10,*) nrun
-    end if
 
     do i=1,nspecies
        filename='msd'//indi(i:i)//'.dat'
@@ -118,50 +116,13 @@ contains
        normtot(i)=0
     end do
 
-    !!!!! If there is a restart file !!!!!
-
-    if (restart) then
-       open(12,file=rstfile,status='old',form='formatted')
-       do i=0,nmsdlength
-          do j=1,num
-             read(12,*) xmsd(j,i) 
-             read(12,*) ymsd(j,i) 
-             read(12,*) zmsd(j,i) 
-             read(12,*) norm(j,i) 
-          end do
-          do j=1,nspecies
-             do k=1,nspecies
-                read(12,*) xds(i,j,k)
-                read(12,*) yds(i,j,k)
-                read(12,*) zds(i,j,k)
-             end do
-          end do
-          read(12,*) normtot(i)
+    k=1
+    do i=1,nspecies
+       do j=1,numspc(i)
+          ntype(k)=i
+          k=k+1   
        end do
-       close(12)
-    end if
-
-    !!!!! Types of the different species !!!!!
-
-    if (readfrominpt_log) then
-       k=1
-       do i=1,nspecies
-          do j=1,numspc(i)
-             ntype(k)=i
-             k=k+1   
-          end do
-       end do
-    !   read(11,*) nbin,bin,nbin
-    !   do i=1,num
-    !      read(11,*) nbin
-    !   end do
-    else
-       read(11,*) nmsdcalltime,dtime,nrun
-       do i=1,num
-          read(11,*) ntype(i)
-       end do
-    end if 
-    close(10)
+    end do
 
     nstep=0
     mcorrtime=1
@@ -171,18 +132,13 @@ contains
     do n=1,nconfigs
        nstep=nstep+nmsdcalltime
        do j=1,num
-          read(11,*) xdisp(j),ydisp(j),zdisp(j)
-!          if(xdisp(j).gt.flag_disp) write(6,*)'warning',xdisp(j),j,nstep
-!          if(ydisp(j).gt.flag_disp) write(6,*)'warning',ydisp(j),j,nstep
-!          if(zdisp(j).gt.flag_disp) write(6,*)'warning',zdisp(j),j,nstep
-
+          xdisp(j) = xdisp_long((n-1)*num+j)
+          ydisp(j) = ydisp_long((n-1)*num+j)
+          zdisp(j) = zdisp_long((n-1)*num+j)
        end do
-!       write(6,*)'entering msdcalc',nstep
        call msdcalc
     end do
     close(11)
-
-    !!!!! Write out restart file !!!!!
 
     call msdoutput
 
@@ -344,27 +300,6 @@ contains
            end do
         end do
 
-        !!!!! Writing out values for restart file !!!!!
-
-        open(14,file=rstfile,form='formatted')
-        do i=0,nmsdlength
-           do j=1,num
-              write(14,*) xmsd(j,i)
-              write(14,*) ymsd(j,i)
-              write(14,*) zmsd(j,i)
-              write(14,*) norm(j,i)
-           end do
-           do i1=1,nspecies
-              do i2=1,nspecies
-                 write(14,*) xds(i,i1,i2)   
-                 write(14,*) yds(i,i1,i2)   
-                 write(14,*) zds(i,i1,i2)   
-              end do
-           end do
-           write(14,*) normtot(i)
-        end do
-        close(14)
-
         !!!!! Average over components and number of molecules !!!!!
 
         do i=1,num
@@ -447,10 +382,6 @@ contains
            write(200,*) time,work
            write(201,*) time,wnernst
         end do
-
-!        write(6,*) 
-!        write(6,*) '*** Mean squared displacements written out ***' 
-!        write(6,*) 
 
         return
 
