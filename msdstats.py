@@ -13,6 +13,19 @@ import matplotlib.pyplot as plt
 from os.path import isfile
 import sys
 
+"""
+Program for calculating statistics of msd/diffusion data
+"""
+__author__ = "Mario Burbano, Benjamin J. Morgan"
+__credits__ = ["Mario Burbano", "Benjamin J. Morgan"]
+__maintainer__ = "Mario Burbano"
+__license__ = "GPL"
+__version__ = "1.0"
+__email__ = "burbano.carmona@gmail.com"
+__date__ = "11 Oct., 2016"
+__status__ = "Production"
+
+
 def parse_commandline_arguments():
     parser = argparse.ArgumentParser( description = 'msd error analysis' )
     ###########################################################################################################################################
@@ -191,8 +204,6 @@ if __name__ == '__main__':
     if np.sum( nspcs * charges ) != 0.0:
         sys.exit('System is not charge balanced!')
 
-
-    #complete_disp_data, nframes_tot = open_displacements( displacements_file, natoms )
 
     if not convcalc:
         slope_stats = slope_statistics( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_size_frames, slice_offset, msd_files ) 

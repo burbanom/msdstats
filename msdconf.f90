@@ -1,14 +1,18 @@
 ! This program calculates mean square displacements from disp.out
+! files without the header information.
+! This module is meant for use with msdstats.py, as such it should 
+! be compiled using f2py to generate a python-compatible module:
+! f2py -c -m calcmsds mdsconf.f90
 
 module calcmsds 
 
 IMPLICIT NONE
 
-!!! Input arrays
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: xdisp_long,ydisp_long,zdisp_long
-DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: z 
-INTEGER, ALLOCATABLE, DIMENSION(:) :: numspc 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
+!!! Input arrays that are passed by python !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: xdisp_long,ydisp_long,zdisp_long    !
+DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:) :: z                                   ! 
+INTEGER, ALLOCATABLE, DIMENSION(:) :: numspc                                       ! 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 contains
 
@@ -26,14 +30,12 @@ contains
     DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xdispstore,ydispstore,zdispstore
     DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:) :: xmsd,ymsd,zmsd
     DOUBLE PRECISION, ALLOCATABLE, DIMENSION(:,:,:) :: xds,yds,zds
-    CHARACTER*20 :: rstfile,filename
+    CHARACTER*20 :: filename
     CHARACTER(len=9) :: indi
-    LOGICAL :: overflow, restart,readfrominpt_log
+    LOGICAL :: overflow, restart
 
-    rstfile='msdrst.dat'
     restart=.false.
     overflow=.false.
-    readfrominpt_log=.false.
 
     indi='123456789'
 
