@@ -26,7 +26,7 @@ __status__ = "Production"
 
 
 def parse_commandline_arguments():
-    parser = argparse.ArgumentParser( description = 'msd error analysis' )
+    parser = argparse.ArgumentParser( description = 'msd error analysis. Requires a file system.in file with the number of atoms and their charges' )
     ###########################################################################################################################################
     # The following two values correspond to tau and delta, respectively in the following article:
     # http://pubs.acs.org/doi/abs/10.1021/acs.jctc.5b00574?journalCode=jctcce
@@ -38,8 +38,6 @@ def parse_commandline_arguments():
     parser.add_argument( '--timestep', '-t', metavar = 'F', type=float, required = False, default = 41.3414, help='Simulation timestep in a.u.' )
     parser.add_argument( '--displacement-file', '-d', help='complete displacement file filename', default='displong.out' )
     parser.add_argument( '--msd-files', '-m', nargs='+', help='list of msd output files to analyse', required = True )
-    parser.add_argument( '--charges', '-z', nargs='+', type=float, help='Charge on each species. Same order as nspcs', required = True )
-    parser.add_argument( '--nspcs', '-ns', nargs='+', type=int, help='Number or atoms of each species. Same order as charges.', required = True )
     parser.add_argument( '--convcalc', '-cc', action='store_true', help='Perform a slope convergence calculation rather than the slope statistics calculation.' )
     return parser.parse_args()
 
@@ -154,18 +152,40 @@ def disp_slicer( dispfile, tot_rows, row_start, row_end ):
     footer = len( [i for i in range(row_end, tot_rows) ] )
     return np.genfromtxt(dispfile, skip_header = header, skip_footer = footer, dtype= np.float64)
 
-def simplecount(filename):
-    lines = 0
-    for line in open(filename):
-        lines += 1
-    return lines
+def my_system( infile = 'system.in' ):
+    # This function reads the system information
+    # from an input file, whose format should be
+    # two comma-separated columns, the first with
+    # the number of atoms of each species and the
+    # second with their respective charges.
+    if (not isfile( infile )):
+        sys.exit("File " + infile + " not found. It is required to specify\n\
+                the number of atoms and their charges.")
+    species = []
+    charges = []
+    with open( infile ) as f:
+        for line in f.readlines():
+            if not line[0].startswith('#'):
+                species.append(line.split(',')[0])
+                charges.append(line.split(',')[1].rstrip())
+    species = np.array(species, dtype=np.int64)  
+    charges = np.array(charges, dtype=np.float64)
+    return species, charges
 
 def wccount(filename):
     import subprocess
-    out = subprocess.Popen(['wc', '-l', filename],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT).communicate()[0]
+    if filename[-3:] == '.gz':
+        out = subprocess.Popen(["zcat "+ filename + " | wc -l"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, shell = True).communicate()[0]
+    else:
+        out = subprocess.Popen(['wc', '-l', filename],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+        ).communicate()[0]
     return int(out.partition(b' ')[0])
+
 
 if __name__ == '__main__':
     args = parse_commandline_arguments()
@@ -177,32 +197,24 @@ if __name__ == '__main__':
     msd_length = args.msdlen
     convcalc = args.convcalc
     prntfrq = args.prntfrq
-    charges = args.charges
-    charges = np.array( args.charges , dtype=np.float64 )
-    nspcs = np.array( args.nspcs, dtype=np.int64 )
     timestep = args.timestep
     
-    try:
-        isfile( displacements_file ) 
-    except:
+    if (not isfile( displacements_file )):
         sys.exit("File " + displacements_file + " not found")
 
     try:
         nlines = wccount( displacements_file )
-        isfile( 'msd_template' ) 
-    except OSError:
-        print("OS error: {0}".format(err))
-    else:
-        nlines = simplecount( displacements_file ) 
+    except:
+        sys.exit("Problem counting the number of lines in " + displacements_file )
+
+    nspcs, charges = my_system()
+    if np.sum( nspcs * charges ) != 0.0:
+        sys.exit('System is not charge balanced!')
 
     natoms = np.sum( nspcs )
     if np.mod( nlines, natoms ) != 0:
         sys.exit('ERROR = The number of frames in the file is not an integer multiple of the number of atoms.')
     nframes_tot = int( nlines / natoms )
-
-    if np.sum( nspcs * charges ) != 0.0:
-        sys.exit('System is not charge balanced!')
-
 
     if not convcalc:
         slope_stats = slope_statistics( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_size_frames, slice_offset, msd_files ) 
