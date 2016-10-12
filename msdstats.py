@@ -95,12 +95,12 @@ def slope_statistics( dispfile, nspcs, charges, nframes, msd_length, nprint, tim
 
     for j, initial_frame in enumerate( range( 0, nframes - slice_size + 1, slice_offset ) ):
         final_frame = initial_frame + slice_size
-        sliced_disp_data = disp_slicer( dispfile, nframes * natoms,  initial_frame * natoms, final_frame * natoms )
+        sliced_disp_data = dispfile[ initial_frame * natoms : final_frame * natoms ]
         calcmsds.calcmsds.z = charges
         calcmsds.calcmsds.numspc = nspcs 
-        calcmsds.calcmsds.xdisp_long = sliced_disp_data[:,0]
-        calcmsds.calcmsds.ydisp_long = sliced_disp_data[:,1]
-        calcmsds.calcmsds.zdisp_long = sliced_disp_data[:,2]
+        calcmsds.calcmsds.xdisp_long = sliced_disp_data['x'].values
+        calcmsds.calcmsds.ydisp_long = sliced_disp_data['y'].values
+        calcmsds.calcmsds.zdisp_long = sliced_disp_data['z'].values
         this_calc = calcmsds.calcmsds.msdconf(num=natoms,nspecies=nspecies,
                 nmsdlength=msd_length,nmsdcalltime=nprint,dtime=timestep,nrun= slice_size * nprint)
 
@@ -130,12 +130,12 @@ def slope_convergence( dispfile, nspcs, charges, nframes, msd_length, nprint, ti
     
     for j, new_length in enumerate( slices ):
         
-        sliced_disp_data = disp_slicer( dispfile, nframes * natoms, 0, new_length * natoms )
+        sliced_disp_data = dispfile[ 0 : new_length * natoms ]
         calcmsds.calcmsds.z = charges
         calcmsds.calcmsds.numspc = nspcs 
-        calcmsds.calcmsds.xdisp_long = sliced_disp_data[:,0]
-        calcmsds.calcmsds.ydisp_long = sliced_disp_data[:,1]
-        calcmsds.calcmsds.zdisp_long = sliced_disp_data[:,2]
+        calcmsds.calcmsds.xdisp_long = sliced_disp_data['x'].values
+        calcmsds.calcmsds.ydisp_long = sliced_disp_data['y'].values
+        calcmsds.calcmsds.zdisp_long = sliced_disp_data['z'].values
         this_calc = calcmsds.calcmsds.msdconf(num=natoms,nspecies=nspecies,
                 nmsdlength=msd_length,nmsdcalltime=nprint,dtime=timestep,nrun= new_length * nprint)
         for i, filename in enumerate( files_to_monitor ):
@@ -216,7 +216,9 @@ if __name__ == '__main__':
         sys.exit('ERROR = The number of frames in the file is not an integer multiple of the number of atoms.')
     nframes_tot = int( nlines / natoms )
 
+    displacements = pd.read_csv( displacements_file, delim_whitespace=True,names= ['x','y','z'], dtype={'x': np.float64, 'y': np.float64, 'z': np.float64} )
+
     if not convcalc:
-        slope_stats = slope_statistics( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_size_frames, slice_offset, msd_files ) 
+        slope_stats = slope_statistics( displacements, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_size_frames, slice_offset, msd_files ) 
     else:
-        slope_conv = slope_convergence( displacements_file, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_offset, msd_files )
+        slope_conv = slope_convergence( displacements, nspcs, charges, nframes_tot, msd_length, prntfrq, timestep, slice_offset, msd_files )
