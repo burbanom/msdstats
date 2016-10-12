@@ -4,7 +4,7 @@
 # Benjamin J. Morgan (b.j.morgan@bath.ac.uk)
 # Mario Burbano (burbano.carmona@gmail.com)
 
-from __future__ import print_function
+from __future__ import print_function, division
 import numpy as np
 import pandas as pd
 import argparse
@@ -77,7 +77,7 @@ def linear_regression( x, y ):
 def get_slope_from_msd_output( filename ):
     msd_data = np.loadtxt( filename )
     msd_length = msd_data.shape[0]
-    long_time_msd_data = msd_data[ msd_length / 5 : -1 ]
+    long_time_msd_data = msd_data[ int( msd_length / 5 ) : -1 ]
     #np.savetxt( 'msd_test.tmp', long_time_msd_data )
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
