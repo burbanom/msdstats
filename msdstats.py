@@ -82,7 +82,7 @@ def get_slope_from_msd_output( filename ):
     slope, intercept = linear_regression( long_time_msd_data[:,0], long_time_msd_data[:,1] )
     return slope
 
-def slope_statistics( dispfile, nspcs, charges, nframes, msd_length, nprint, timestep, slice_size, slice_offset, files_to_monitor ):
+def slope_statistics( displacements, nspcs, charges, nframes, msd_length, nprint, timestep, slice_size, slice_offset, files_to_monitor ):
 
     import calcmsds
 
@@ -95,7 +95,7 @@ def slope_statistics( dispfile, nspcs, charges, nframes, msd_length, nprint, tim
 
     for j, initial_frame in enumerate( range( 0, nframes - slice_size + 1, slice_offset ) ):
         final_frame = initial_frame + slice_size
-        sliced_disp_data = dispfile[ initial_frame * natoms : final_frame * natoms ]
+        sliced_disp_data = displacements[ initial_frame * natoms : final_frame * natoms ]
         calcmsds.calcmsds.z = charges
         calcmsds.calcmsds.numspc = nspcs 
         calcmsds.calcmsds.xdisp_long = sliced_disp_data['x'].values
@@ -115,7 +115,7 @@ def slope_statistics( dispfile, nspcs, charges, nframes, msd_length, nprint, tim
 
     return msd_slopes
 
-def slope_convergence( dispfile, nspcs, charges, nframes, msd_length, nprint, timestep, slice_offset, files_to_monitor ):
+def slope_convergence( displacements, nspcs, charges, nframes, msd_length, nprint, timestep, slice_offset, files_to_monitor ):
 # This function analyses how the slopes change as we increase the simulation time. It creates slices of the 
 # displacement file that become increasingly larger. 
     
@@ -130,7 +130,7 @@ def slope_convergence( dispfile, nspcs, charges, nframes, msd_length, nprint, ti
     
     for j, new_length in enumerate( slices ):
         
-        sliced_disp_data = dispfile[ 0 : new_length * natoms ]
+        sliced_disp_data = displacements[ 0 : new_length * natoms ]
         calcmsds.calcmsds.z = charges
         calcmsds.calcmsds.numspc = nspcs 
         calcmsds.calcmsds.xdisp_long = sliced_disp_data['x'].values
