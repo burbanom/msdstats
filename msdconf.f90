@@ -2,7 +2,7 @@
 ! files without the header information.
 ! This module is meant for use with msdstats.py, as such it should 
 ! be compiled using f2py to generate a python-compatible module:
-! f2py -c -m calcmsds mdsconf.f90
+! f2py -c -m calcmsds msdconf.f90
 
 module calcmsds 
 
